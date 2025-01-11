@@ -59,7 +59,7 @@ TG-Upload/
 ### Prerequisites
 
 - Node.js and npm
-- Docker
+- Docker compose
 
 ### Installation
 

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "docker compose up -d && nodemon index.js",
+    "start": "docker-compose up -d && nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -17,9 +17,10 @@
     "ipull": "^3.9.2",
     "mime-types": "^2.1.35",
     "node-telegram-bot-api": "^0.66.0",
-    "unzipper": "^0.12.3"
+    "unzipper": "^0.12.3",
+    "uuid": "^11.0.5"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0" 
+    "nodemon": "^3.1.0"
   }
 }

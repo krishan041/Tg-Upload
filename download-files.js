@@ -1,9 +1,12 @@
 import { downloadFile, DownloadStatus } from 'ipull';
 import { extractFiles } from './extract.js';
+import { v4 as uuidv4 } from 'uuid';
+// Store active downloads
+export const activeDownloaders = new Map();
 
 function isValidUrl(url) {
     try {
-        new URL(url); // Throws an error if the URL is invalid
+        new URL(url);
         return true;
     } catch (error) {
         return false;
@@ -11,31 +14,28 @@ function isValidUrl(url) {
 }
 
 export async function checkFilename(urlLink) {
-    // Validate the URL before proceeding
     if (!isValidUrl(urlLink)) {
         console.error('Invalid URL:', urlLink);
         return null;
     }
 
-    let downloader = null; // Define downloader outside of try block to ensure scope availability in catch
+    let downloader = null;
     try {
         const config = {
             url: urlLink,
-            directory: './downloads', // or 'savePath' for full path
-            cliProgress: true, // Show progress bar in the CLI (default: false)
-            parallelStreams: 3, // Number of parallel connections (default: 3)
+            directory: './downloads',
+            cliProgress: true,
+            parallelStreams: 3,
         };
 
         const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Timeout exceeded')), 10000) // 10 seconds timeout
+            setTimeout(() => reject(new Error('Timeout exceeded')), 10000)
         );
 
         const downloaderPromise = downloadFile(config);
 
-        // Use Promise.race to trigger the timeout or downloader promise whichever resolves first
         downloader = await Promise.race([downloaderPromise, timeoutPromise]);
 
-        // Ensure the filename is available
         if (!downloader.fileName) {
             throw new Error('Filename not available after download.');
         }
@@ -44,25 +44,27 @@ export async function checkFilename(urlLink) {
     } catch (error) {
         console.error('Error:', error);
 
-        // If there's a downloader instance and it has a closeAndDeleteFile method, clean up the file
         if (downloader && downloader.closeAndDeleteFile) {
             await downloader.closeAndDeleteFile();
         }
 
-        return 'failed'; // Return 'failed' in case of error or timeout
+        return 'failed';
     }
 }
 
-
-
 export async function downloadWithLogging(url, directory, parallelStreams = 3, extract, callback) {
     return new Promise(async (resolve, reject) => {
+        let downloader = null;
         try {
-            const downloader = await downloadFile({
+            const downloadId = uuidv4(); // Generate a unique ID
+            downloader = await downloadFile({
                 url: url,
                 directory: directory,
                 parallelStreams: parallelStreams
             });
+
+            // Store the downloader instance with the unique ID as key
+            activeDownloaders.set(downloadId, { downloader, fileName: downloader.fileName });
 
             downloader.download();
             const fileName = downloader.fileName;
@@ -80,26 +82,56 @@ export async function downloadWithLogging(url, directory, parallelStreams = 3, e
                     percentage: status.formattedPercentage
                 };
 
-                // Call the callback with the logs
                 if (callback) {
                     callback(logs);
                 }
 
                 if (status.downloadStatus === "Finished") {
-                    clearInterval(interval); // Stop the interval when download is finished
+                    clearInterval(interval);
+                    activeDownloaders.delete(downloadId); // Use the ID here
+
                     if(fileName.includes('.zip') && (extract===true)) {
-                        console.log("extrating file")
-                        const path=await extractFiles(fileName);
+                        console.log("extracting file")
+                        const path = await extractFiles(fileName);
                         console.log(`Extracted ${fileName}`);
-                        clearInterval(interval); // Stop the interval when extraction is finished
-                        resolve(path)
+                        resolve(path);
+                    } else {
+                        resolve(fileName);
                     }
-                    resolve(fileName); // Resolve the promise with "download"
+                } else if (status.downloadStatus === "Cancelled") {
+                    clearInterval(interval);
+                    activeDownloaders.delete(downloadId); // Use the ID here
+                    reject("cancelled");
                 }
             }, 1000);
         } catch (error) {
             console.log(error);
-            reject("error"); // Reject the promise if there's an error
+            if (downloader) {
+                // We might not have the downloadId here if the error happened before downloader was created,
+                // but it's safer to try to delete if it exists.
+                if (downloader.fileName) {
+                    const existingDownloadEntry = Array.from(activeDownloaders.entries()).find(([id, data]) => data.fileName === downloader.fileName);
+                    if (existingDownloadEntry) {
+                        activeDownloaders.delete(existingDownloadEntry[0]);
+                    }
+                }
+            }
+            reject("error");
         }
     });
+}
+
+export function cancelDownload(downloadId) {
+    const downloadEntry = activeDownloaders.get(downloadId);
+    if (downloadEntry && downloadEntry.downloader) {
+        try {
+            downloadEntry.downloader.closeAndDeleteFile();
+            activeDownloaders.delete(downloadId);
+            return true;
+        } catch (error) {
+            console.error('Error cancelling download:', error);
+            return false;
+        }
+    }
+    return false;
 }
