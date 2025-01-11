@@ -14,6 +14,8 @@ const parallelStreams = 3;
 // Initialize the bot
 const bot = initBot();
 
+const delay = (ms) => new Promise(res => setTimeout(res, ms));
+
 const urlPattern = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/;
 
 // Function to send initial message and return the message ID
@@ -142,9 +144,9 @@ bot.on('message', async (msg) => {
                 // Send the initial download message and start download
                 await sendInitialMessage(chatId);
                 
-                const path = await downloadWithLogging(msg.text, downloadsDirectory, parallelStreams, extractChoice === 'Yes', (logs) => {
+                const path = await downloadWithLogging(msg.text, downloadsDirectory, parallelStreams, extractChoice === 'Yes', async(logs) => {
                     // console.log('Logs:', logs);
-                    
+                    await delay(5000)
                     // Update the Telegram message with the download progress
                     updateDownloadLog(chatId, logs);
                 });
