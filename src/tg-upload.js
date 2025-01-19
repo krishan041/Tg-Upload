@@ -6,7 +6,7 @@ import ffmpeg from 'fluent-ffmpeg'; // For extracting video dimensions
 import { getBot,initBot } from './bot.js';
 import path from 'path';
 dotenv.config();
- // List of files you want to upload
+
 
 // Function to get video dimensions (width & height)
 function getVideoDimensions(filePath) {
@@ -54,7 +54,7 @@ export async function uploadFilesOneByOne(chatId, filesName, uploadType) {
         const maxRetries = 5;
         console.log("filepath: " + typeof(filePath))
         console.log("filepath: " + filePath)
-        const shortFilePath = filePath.substring(10);
+        const shortFilePath = filePath.substring(24);
 
 
         while (retryCount < maxRetries) {
@@ -144,7 +144,8 @@ export async function uploadFilesConcurrently(chatId, filesName, uploadType) {
 
 export const uploadDirectoryOneByOne = async (chatId, directoryPath, uploadType) => {
     console.log("from tg uploadDirectoryOneByOne", chatId, directoryPath)
-    const files = fs.readdirSync(directoryPath);
+    const files = fs.readdirSync(directoryPath)
+        .filter(file => fs.statSync(path.join(directoryPath, file)).isFile());
     const bot = getBot();
 
     for (const file of files) {
@@ -196,7 +197,8 @@ export const uploadDirectoryOneByOne = async (chatId, directoryPath, uploadType)
 export async function uploadDirectoryConcurrently(chatId, directoryPath, uploadType) {
     const bot = getBot();
     try {
-        const files = fs.readdirSync(directoryPath); // Get all files in the directory
+        const files = fs.readdirSync(directoryPath)
+        .filter(file => fs.statSync(path.join(directoryPath, file)).isFile()); // Filter only files
 
         const uploadPromises = files.map(async (fileName) => {
             const filePath = `${directoryPath}/${fileName}`;

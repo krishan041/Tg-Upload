@@ -1,4 +1,3 @@
-// index.js
 import { initBot } from './bot.js';
 import { downloadWithLogging, cancelDownload,checkFilename, activeDownloaders } from './download-files.js';
 import { uploadDirectoryOneByOne, uploadFilesOneByOne } from "./tg-upload.js";
@@ -118,6 +117,10 @@ const deleteAllFilesAndDirectories = (dirPath) => {
     }
 };
 
+function generateUniqueId() {
+    return Date.now().toString(); // Simple unique ID based on current timestamp
+}
+
 bot.on('callback_query', async (query) => {
     const data = query.data;
     if (data.startsWith('cancel_')) {
@@ -142,9 +145,30 @@ bot.on('callback_query', async (query) => {
     }
 });
 
+function deleteUser (userId) {
+    const userDownloadDir = `./downloads/${userId}/`;
+    const userExtractDir = `./extracts/${userId}/`;
+
+    // Check if the download directory exists before attempting to delete it
+    if (fs.existsSync(userDownloadDir)) {
+        fs.rmdirSync(userDownloadDir, { recursive: true });
+        console.log(`Deleted user download directory for ID: ${userId}`);
+    } else {
+        console.log(`Download directory for ID: ${userId} does not exist.`);
+    }
+
+    // Check if the extract directory exists before attempting to delete it
+    if (fs.existsSync(userExtractDir)) {
+        fs.rmdirSync(userExtractDir, { recursive: true });
+        console.log(`Deleted user extract directory for ID: ${userId}`);
+    } else {
+        console.log(`Extract directory for ID: ${userId} does not exist.`);
+    }
+}
 
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
+    const userId = generateUniqueId();
 
     if (urlPattern.test(msg.text)) {
         bot.sendMessage(chatId, 'Okay! This is a valid link. Please wait...');
@@ -174,7 +198,7 @@ bot.on('message', async (msg) => {
                     await sendInitialMessage(chatId);
                     
                     try {
-                        const path = await downloadWithLogging(msg.text, downloadsDirectory, parallelStreams, extractChoice === 'Yes', async(logs) => {
+                        const path = await downloadWithLogging(msg.text, downloadsDirectory, userId, parallelStreams, extractChoice === 'Yes', async(logs) => {
                             await delay(5000);
                             updateDownloadLog(chatId, logs);
                         });
@@ -184,15 +208,14 @@ bot.on('message', async (msg) => {
                         bot.sendMessage(chatId, "Sending the file...");
                         
                         if (extractChoice === 'Yes') {
-                            const extractPath = `${extractsDirectory}/${path}`;
+                            const extractPath = `${extractsDirectory}/${userId}/${path}`;
                             await uploadDirectoryOneByOne(chatId, extractPath, uploadType);
                         } else {
-                            const fileName1 = [`${downloadsDirectory}/${fileName}`];
+                            const fileName1 = [`${downloadsDirectory}/${userId}/${fileName}`];
                             await uploadFilesOneByOne(chatId, fileName1, uploadType);
                         }
                         
-                        deleteAllFilesAndDirectories(downloadsDirectory);
-                        deleteAllFilesAndDirectories(extractsDirectory);
+                        deleteUser(userId);
                         
                         bot.sendMessage(chatId, "Upload complete. All files and directories have been cleaned up.");
                     } catch (error) {
@@ -203,8 +226,8 @@ bot.on('message', async (msg) => {
                             bot.sendMessage(chatId, "An error occurred during download.");
                         }
                         // Clean up directories even if download failed or was cancelled
-                        deleteAllFilesAndDirectories(downloadsDirectory);
-                        deleteAllFilesAndDirectories(extractsDirectory);
+                        deleteUser(userId);
+
                     }
                 } else {
                     const extractChoice = 'No';
@@ -222,7 +245,7 @@ bot.on('message', async (msg) => {
                     await sendInitialMessage(chatId);
                     
                     try {
-                        const path = await downloadWithLogging(msg.text, downloadsDirectory, parallelStreams, extractChoice === 'Yes', async(logs) => {
+                        const path = await downloadWithLogging(msg.text, downloadsDirectory,userId, parallelStreams, extractChoice === 'Yes', async(logs) => {
                             await delay(5000);
                             updateDownloadLog(chatId, logs);
                         });
@@ -231,11 +254,10 @@ bot.on('message', async (msg) => {
                         console.log("Finished downloading file and extracting...");
                         bot.sendMessage(chatId, "Sending the file...");
                         
-                        const fileName1 = [`${downloadsDirectory}/${fileName}`];
+                        const fileName1 = [`${downloadsDirectory}/${userId}/${fileName}`];
                         await uploadFilesOneByOne(chatId, fileName1, uploadType);
                         
-                        deleteAllFilesAndDirectories(downloadsDirectory);
-                        deleteAllFilesAndDirectories(extractsDirectory);
+                        deleteUser(userId);
                         
                         bot.sendMessage(chatId, "Upload complete. All files and directories have been cleaned up.");
                     } catch (error) {
@@ -246,15 +268,15 @@ bot.on('message', async (msg) => {
                             bot.sendMessage(chatId, "An error occurred during download.");
                         }
                         // Clean up directories even if download failed or was cancelled
-                        deleteAllFilesAndDirectories(downloadsDirectory);
-                        deleteAllFilesAndDirectories(extractsDirectory);
+                        deleteUser(userId);
+
                     }
                 }
             } catch (error) {
                 console.error("General error:", error);
                 bot.sendMessage(chatId, "An error occurred while processing your request.");
-                deleteAllFilesAndDirectories(downloadsDirectory);
-                deleteAllFilesAndDirectories(extractsDirectory);
+                deleteUser(userId);
+
             }
         } else {
             bot.sendMessage(chatId, 'File download failed due to timeout or error.');

@@ -52,14 +52,15 @@ export async function checkFilename(urlLink) {
     }
 }
 
-export async function downloadWithLogging(url, directory, parallelStreams = 3, extract, callback) {
+export async function downloadWithLogging(url, directory,userId, parallelStreams = 3, extract, callback) {
     return new Promise(async (resolve, reject) => {
         let downloader = null;
         try {
+            const userDownloadDir = `${directory}/${userId}/`;
             const downloadId = uuidv4(); // Generate a unique ID
             downloader = await downloadFile({
                 url: url,
-                directory: directory,
+                directory: userDownloadDir,
                 parallelStreams: parallelStreams
             });
 
@@ -92,7 +93,7 @@ export async function downloadWithLogging(url, directory, parallelStreams = 3, e
 
                     if(fileName.includes('.zip') && (extract===true)) {
                         console.log("extracting file")
-                        const path = await extractFiles(fileName);
+                        const path = await extractFiles(fileName,userId);
                         console.log(`Extracted ${fileName}`);
                         resolve(path);
                     } else {
