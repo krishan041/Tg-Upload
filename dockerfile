@@ -4,17 +4,17 @@ FROM node:14
 # Set the working directory inside the container
 WORKDIR /app
 
-# Copy the package.json and package-lock.json files
+# Copy package.json and package-lock.json files
 COPY package*.json ./
 
 # Install dependencies
 RUN npm install
 
-# Copy the rest of the application code
+# Copy the rest of the application code into the container
 COPY . .
 
-# Expose port 3000 (or any port your app uses)
+# Expose port 3000 (or your app's port)
 EXPOSE 3000
 
-# Define the command to run your app
-CMD ["node", "app.js"]
+# Run the app (make sure to use the correct entry file, e.g., index.js)
+CMD ["node", "index.js"]
