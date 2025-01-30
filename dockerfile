@@ -13,8 +13,8 @@ RUN npm install
 # Copy the rest of the application code into the container
 COPY . .
 
-# Expose port 3000 (or your app's port)
-EXPOSE 3000
+# Expose the app's port (8021 as an example)
+EXPOSE 8021
 
-# Run the app (make sure to use the correct entry file, e.g., index.js)
-CMD ["node", "index.js"]
+# Run the app (make sure to use the correct entry file, e.g., server.js)
+CMD ["node", "server.js"]
